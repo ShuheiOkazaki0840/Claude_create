@@ -89,15 +89,21 @@ export default function Sidebar() {
 
       {/* Bottom Section */}
       <div className="p-3 border-t border-gray-800 space-y-1">
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors w-full">
-          <Bell className="w-4 h-4 text-gray-500" />
+        <Link
+          href="/notifications"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full ${pathname === '/notifications' ? 'bg-blue-600/20 border border-blue-500/30 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+        >
+          <Bell className={`w-4 h-4 ${pathname === '/notifications' ? 'text-blue-400' : 'text-gray-500'}`} />
           <span className="text-sm">通知設定</span>
           <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
-        </button>
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors w-full">
-          <Settings className="w-4 h-4 text-gray-500" />
+        </Link>
+        <Link
+          href="/settings"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors w-full ${pathname === '/settings' ? 'bg-blue-600/20 border border-blue-500/30 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+        >
+          <Settings className={`w-4 h-4 ${pathname === '/settings' ? 'text-blue-400' : 'text-gray-500'}`} />
           <span className="text-sm">設定</span>
-        </button>
+        </Link>
       </div>
 
       {/* Market Status */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 import {
   Target,
   Plus,
@@ -75,12 +76,14 @@ function projectWealth(
 }
 
 export default function LifePlanPage() {
-  const [currentAssets, setCurrentAssets] = useState(5000000);
-  const [monthlySavings, setMonthlySavings] = useState(100000);
-  const [annualReturn, setAnnualReturn] = useState(5);
-  const [goals, setGoals] = useState<LifeGoal[]>(DEFAULT_GOALS);
+  const [currentAssets, setCurrentAssets, assetsLoaded] = useLocalStorage<number>('lifeplan-assets', 5000000);
+  const [monthlySavings, setMonthlySavings] = useLocalStorage<number>('lifeplan-savings', 100000);
+  const [annualReturn, setAnnualReturn] = useLocalStorage<number>('lifeplan-return', 5);
+  const [goals, setGoals, goalsLoaded] = useLocalStorage<LifeGoal[]>('lifeplan-goals', DEFAULT_GOALS);
   const [showAddGoal, setShowAddGoal] = useState(false);
   const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '', targetYear: '', icon: 'other' });
+
+  if (!assetsLoaded || !goalsLoaded) return null;
 
   const maxYear = Math.max(...goals.map((g) => g.targetYear), CURRENT_YEAR + 30);
   const projectionYears = maxYear - CURRENT_YEAR + 2;

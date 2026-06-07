@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocalStorage } from '@/lib/useLocalStorage';
 import { defaultPortfolio, sectorColors } from '@/lib/mockData';
 import type { PortfolioHolding } from '@/lib/mockData';
 import {
@@ -37,7 +38,7 @@ function calcPnL(h: PortfolioHolding) {
 }
 
 export default function PortfolioPage() {
-  const [holdings, setHoldings] = useState<PortfolioHolding[]>(defaultPortfolio);
+  const [holdings, setHoldings, holdingsLoaded] = useLocalStorage<PortfolioHolding[]>('portfolio-holdings', defaultPortfolio);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newHolding, setNewHolding] = useState({ ticker: '', name: '', quantity: '', avgBuyPrice: '', currentPrice: '', sector: '' });
 
@@ -86,6 +87,8 @@ export default function PortfolioPage() {
     setNewHolding({ ticker: '', name: '', quantity: '', avgBuyPrice: '', currentPrice: '', sector: '' });
     setShowAddForm(false);
   };
+
+  if (!holdingsLoaded) return null;
 
   return (
     <div className="p-6 space-y-6">
