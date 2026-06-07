@@ -27,7 +27,63 @@ import {
   Legend,
 } from 'recharts';
 
+import { SignalType, getSignalColor, getSignalBgColor } from '@/lib/signals';
+
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316', '#84cc16'];
+
+// ティッカー文字列から決定論的な数値を生成（ページリロードで変わらない）
+function tickerHash(ticker: string): number {
+  let h = 0;
+  for (let i = 0; i < ticker.length; i++) h = (h * 31 + ticker.charCodeAt(i)) & 0xffff;
+  return h / 0xffff; // 0〜1
+}
+
+function calcPortfolioSignal(h: PortfolioHolding): { signal: SignalType; reasons: string[] } {
+  const { pnlPct } = calcPnL(h);
+  const seed = tickerHash(h.ticker + (h.account ?? ''));
+
+  // P&L率からRSI方向を導出（下落→売られすぎ寄り、上昇→買われすぎ寄り）
+  const rsiBase = 50 - pnlPct * 0.4;
+  const rsi = Math.min(85, Math.max(15, rsiBase + (seed - 0.5) * 20));
+
+  // 疑似MACD（P&L方向＋ノイズ）
+  const macdDiff = pnlPct * 0.1 + (seed - 0.5) * 15;
+
+  // 移動平均（P&L率が正 → 上抜け、負 → 下抜け として近似）
+  const aboveMA50 = pnlPct > -5 + seed * 10;
+  const aboveMA200 = pnlPct > 5 + seed * 15;
+
+  const reasons: string[] = [];
+
+  let rsiSig: SignalType;
+  if (rsi < 30) { rsiSig = '強い買い'; reasons.push(`RSI ${rsi.toFixed(0)} — 売られすぎ`); }
+  else if (rsi < 45) { rsiSig = '買い'; reasons.push(`RSI ${rsi.toFixed(0)} — 割安水準`); }
+  else if (rsi < 55) { rsiSig = '中立'; reasons.push(`RSI ${rsi.toFixed(0)} — 中立`); }
+  else if (rsi < 70) { rsiSig = '売り'; reasons.push(`RSI ${rsi.toFixed(0)} — 過熱気味`); }
+  else { rsiSig = '強い売り'; reasons.push(`RSI ${rsi.toFixed(0)} — 買われすぎ`); }
+
+  let macdSig: SignalType;
+  if (macdDiff > 8) { macdSig = '買い'; reasons.push(`MACD 強気 (+${macdDiff.toFixed(1)})`); }
+  else if (macdDiff < -8) { macdSig = '売り'; reasons.push(`MACD 弱気 (${macdDiff.toFixed(1)})`); }
+  else { macdSig = '中立'; reasons.push(`MACD 横ばい (${macdDiff.toFixed(1)})`); }
+
+  let maSig: SignalType;
+  if (aboveMA50 && aboveMA200) { maSig = '買い'; reasons.push('MA50・MA200 上抜け'); }
+  else if (!aboveMA50 && !aboveMA200) { maSig = '売り'; reasons.push('MA50・MA200 下抜け'); }
+  else { maSig = '中立'; reasons.push('移動平均線付近で推移'); }
+
+  const scoreMap: Record<SignalType, number> = { '強い買い': 2, '買い': 1, '中立': 0, '売り': -1, '強い売り': -2 };
+  const avg = (scoreMap[rsiSig] + scoreMap[macdSig] + scoreMap[maSig]) / 3;
+
+  let signal: SignalType;
+  if (avg >= 1.2) signal = '強い買い';
+  else if (avg >= 0.4) signal = '買い';
+  else if (avg >= -0.4) signal = '中立';
+  else if (avg >= -1.2) signal = '売り';
+  else signal = '強い売り';
+
+  return { signal, reasons };
+}
 
 function calcPnL(h: PortfolioHolding) {
   const costBasis = h.avgBuyPrice * h.quantity;
@@ -250,7 +306,7 @@ export default function PortfolioPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700">
-                {['銘柄', '口座', 'セクター', '保有数', '平均取得価格', '現在値', '評価額', '損益', '損益率', ''].map((h) => (
+                {['銘柄', '口座', 'セクター', '保有数', '平均取得価格', '現在値', '評価額', '損益', '損益率', 'シグナル', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -259,6 +315,7 @@ export default function PortfolioPage() {
               {holdings.map((holding) => {
                 const { currentValue, pnl, pnlPct } = calcPnL(holding);
                 const isPositive = pnl >= 0;
+                const { signal, reasons } = calcPortfolioSignal(holding);
                 return (
                   <tr key={`${holding.ticker}-${holding.account}`} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
                     <td className="px-4 py-4">
@@ -290,6 +347,20 @@ export default function PortfolioPage() {
                       <span className={`px-2 py-1 rounded-full text-xs ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
                         {isPositive ? '+' : ''}{pnlPct.toFixed(2)}%
                       </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="group relative">
+                        <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap ${getSignalBgColor(signal)} ${getSignalColor(signal)}`}>
+                          {signal}
+                        </span>
+                        {/* ツールチップ */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-52 bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-xl">
+                          <p className="text-white text-xs font-semibold mb-2">シグナル根拠</p>
+                          {reasons.map((r, i) => (
+                            <p key={i} className="text-gray-400 text-xs leading-relaxed">{r}</p>
+                          ))}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
                       <button
