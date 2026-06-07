@@ -69,8 +69,8 @@ export default function PortfolioPage() {
     return { name: h.name.length > 8 ? h.name.slice(0, 8) + '…' : h.name, pnl: Math.round(pnl) };
   });
 
-  const removeHolding = (ticker: string) => {
-    setHoldings((prev) => prev.filter((h) => h.ticker !== ticker));
+  const removeHolding = (ticker: string, account?: string) => {
+    setHoldings((prev) => prev.filter((h) => !(h.ticker === ticker && h.account === account)));
   };
 
   const addHolding = () => {
@@ -250,7 +250,7 @@ export default function PortfolioPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700">
-                {['銘柄', 'セクター', '保有数', '平均取得価格', '現在値', '評価額', '損益', '損益率', ''].map((h) => (
+                {['銘柄', '口座', 'セクター', '保有数', '平均取得価格', '現在値', '評価額', '損益', '損益率', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -260,7 +260,7 @@ export default function PortfolioPage() {
                 const { currentValue, pnl, pnlPct } = calcPnL(holding);
                 const isPositive = pnl >= 0;
                 return (
-                  <tr key={holding.ticker} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
+                  <tr key={`${holding.ticker}-${holding.account}`} className="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
                     <td className="px-4 py-4">
                       <div>
                         <p className="text-white text-sm font-medium">{holding.name}</p>
@@ -268,11 +268,20 @@ export default function PortfolioPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
+                      {holding.account && (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          holding.account.startsWith('NISA') ? 'bg-blue-500/20 text-blue-300' :
+                          holding.account === '特定' ? 'bg-gray-700 text-gray-300' :
+                          'bg-purple-500/20 text-purple-300'
+                        }`}>{holding.account}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
                       <span className="text-xs px-2 py-1 rounded-full bg-gray-700 text-gray-300">{holding.sector}</span>
                     </td>
-                    <td className="px-4 py-4 text-gray-300 text-sm">{holding.quantity.toLocaleString()}株</td>
-                    <td className="px-4 py-4 text-gray-300 text-sm">{holding.avgBuyPrice.toLocaleString('ja-JP')}</td>
-                    <td className="px-4 py-4 text-white text-sm font-medium">{holding.currentPrice.toLocaleString('ja-JP')}</td>
+                    <td className="px-4 py-4 text-gray-300 text-sm">{holding.quantity.toLocaleString()}{holding.unit ?? '株'}</td>
+                    <td className="px-4 py-4 text-gray-300 text-sm">¥{holding.avgBuyPrice.toLocaleString('ja-JP', { maximumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-4 text-white text-sm font-medium">¥{holding.currentPrice.toLocaleString('ja-JP', { maximumFractionDigits: 2 })}</td>
                     <td className="px-4 py-4 text-white text-sm font-medium">¥{currentValue.toLocaleString('ja-JP', { maximumFractionDigits: 0 })}</td>
                     <td className={`px-4 py-4 text-sm font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                       {isPositive ? '+' : ''}¥{pnl.toLocaleString('ja-JP', { maximumFractionDigits: 0 })}
@@ -284,7 +293,7 @@ export default function PortfolioPage() {
                     </td>
                     <td className="px-4 py-4">
                       <button
-                        onClick={() => removeHolding(holding.ticker)}
+                        onClick={() => removeHolding(holding.ticker, holding.account)}
                         className="text-gray-600 hover:text-red-400 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
